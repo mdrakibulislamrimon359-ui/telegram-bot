@@ -11,6 +11,8 @@ from telegram import (
     InlineKeyboardMarkup,
 )
 
+from telegram.constants import ChatAction
+
 from telegram.ext import (
     Application,
     CommandHandler,
@@ -89,21 +91,19 @@ def start_health_server():
 
 def translate_keyboard():
 
-    keyboard = [
+    return InlineKeyboardMarkup([
         [
             InlineKeyboardButton(
                 "🌐 Translate",
                 callback_data="translate"
             )
         ]
-    ]
-
-    return InlineKeyboardMarkup(keyboard)
+    ])
 
 
 def language_keyboard():
 
-    keyboard = [
+    return InlineKeyboardMarkup([
         [
             InlineKeyboardButton("🇬🇧 English", callback_data="lang_en"),
             InlineKeyboardButton("🇮🇳 Hindi", callback_data="lang_hi"),
@@ -128,13 +128,27 @@ def language_keyboard():
             InlineKeyboardButton("🇪🇸 Spanish", callback_data="lang_es"),
             InlineKeyboardButton("🇹🇷 Turkish", callback_data="lang_tr"),
         ],
-    ]
+    ])
 
-    return InlineKeyboardMarkup(keyboard)
+
+LANGUAGES = {
+    "lang_en": "English",
+    "lang_hi": "Hindi",
+    "lang_ar": "Arabic",
+    "lang_ur": "Urdu",
+    "lang_zh": "Chinese",
+    "lang_ja": "Japanese",
+    "lang_ko": "Korean",
+    "lang_bn": "Bangla",
+    "lang_fr": "French",
+    "lang_de": "German",
+    "lang_es": "Spanish",
+    "lang_tr": "Turkish",
+}
 
 
 # =========================================================
-# ISLAMIC GROUP NOTICE
+# GROUP ISLAMIC NOTICE
 # =========================================================
 
 GROUP_NOTICE = """
@@ -144,14 +158,14 @@ GROUP_NOTICE = """
 
 🤝 একে অপরের সাথে সম্মানজনক আচরণ করুন।
 
-📚 ভালো কথা বলুন, উপকারী কথা শেয়ার করুন।
+📚 ভালো ও উপকারী কথা বলুন।
 
 ❤️ কাউকে কষ্ট দেওয়া থেকে বিরত থাকুন।
 
-⚠️ নিয়ম ভঙ্গ করলে প্রথমবার সতর্ক করা হবে।
-⚠️ দ্বিতীয়বার নিয়ম ভঙ্গ করলে গ্রুপ থেকে Kick করা হতে পারে।
+⚠️ প্রথমবার নিয়ম ভঙ্গ করলে সতর্ক করা হবে।
+🚨 দ্বিতীয়বার নিয়ম ভঙ্গ করলে গ্রুপ থেকে Kick করা হতে পারে।
 
-🤲 আল্লাহ আমাদের সুন্দর ভাষায় কথা বলার তাওফিক দিন। আমিন।
+🤲 সুন্দর ভাষায় কথা বলুন এবং সবাইকে সম্মান করুন।
 """
 
 
@@ -169,7 +183,6 @@ BAD_WORDS = [
     "মাদারচোদ",
     "মাদারফাকার",
     "বাল",
-    "বালের",
     "বাঞ্চোদ",
     "বানচোদ",
     "হারামজাদা",
@@ -181,7 +194,6 @@ BAD_WORDS = [
     "খানকির পোলা",
     "খানকিরপোলা",
     "চোদন",
-    "চোদা",
     "fuck",
     "fucking",
     "motherfucker",
@@ -213,9 +225,7 @@ def contains_bad_language(text):
 
     for word in BAD_WORDS:
 
-        check_word = normalize_text(word)
-
-        if check_word in normalized:
+        if normalize_text(word) in normalized:
             return True
 
     return False
@@ -227,7 +237,10 @@ def contains_bad_language(text):
 
 async def is_admin(update, context):
 
-    if not update.effective_chat or not update.effective_user:
+    if not update.effective_chat:
+        return False
+
+    if not update.effective_user:
         return False
 
     try:
@@ -242,8 +255,9 @@ async def is_admin(update, context):
             "creator"
         ]
 
-    except Exception:
+    except Exception as e:
 
+        print("ADMIN CHECK ERROR:", repr(e))
         return False
 
 
@@ -251,21 +265,31 @@ async def is_admin(update, context):
 # WELCOME NEW MEMBER
 # =========================================================
 
-async def welcome_new_member(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def welcome_new_member(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
 
     if not update.chat_member:
         return
 
-    new_status = update.chat_member.new_chat_member.status
-    old_status = update.chat_member.old_chat_member.status
+    new_member = update.chat_member.new_chat_member
+    old_member = update.chat_member.old_chat_member
 
-    if new_status not in ["member", "restricted"]:
+    if new_member.status not in [
+        "member",
+        "restricted"
+    ]:
         return
 
-    if old_status in ["member", "administrator", "creator"]:
+    if old_member.status in [
+        "member",
+        "administrator",
+        "creator"
+    ]:
         return
 
-    user = update.chat_member.new_chat_member.user
+    user = new_member.user
 
     name = user.first_name or "বন্ধু"
 
@@ -282,17 +306,24 @@ async def welcome_new_member(update: Update, context: ContextTypes.DEFAULT_TYPE)
 """
 
     try:
-        await update.effective_chat.send_message(text)
+
+        await update.effective_chat.send_message(
+            text
+        )
 
     except Exception as e:
-        print("WELCOME ERROR:", e)
+
+        print("WELCOME ERROR:", repr(e))
 
 
 # =========================================================
 # MODERATION
 # =========================================================
 
-async def moderate_message(update, context):
+async def moderate_message(
+    update,
+    context
+):
 
     if not update.message:
         return False
@@ -303,11 +334,14 @@ async def moderate_message(update, context):
     if not chat or not user:
         return False
 
-    # Private chat হলে moderation লাগবে না
-    if chat.type not in ["group", "supergroup"]:
+    # Private chat নয়
+    if chat.type not in [
+        "group",
+        "supergroup"
+    ]:
         return False
 
-    # Adminদের message moderate করবে না
+    # Adminদের message বাদ
     if await is_admin(update, context):
         return False
 
@@ -316,77 +350,76 @@ async def moderate_message(update, context):
     if not text:
         return False
 
-    # Bad language detect
+    # গালাগালি নেই
     if not contains_bad_language(text):
         return False
 
-    warning_data = context.application.bot_data.setdefault(
+    warnings = context.application.bot_data.setdefault(
         "bad_language_warnings",
         {}
     )
 
-    key = (chat.id, user.id)
+    key = (
+        chat.id,
+        user.id
+    )
 
-    warning_count = warning_data.get(key, 0) + 1
+    count = warnings.get(key, 0) + 1
 
-    warning_data[key] = warning_count
+    warnings[key] = count
 
-    # Message delete
+    # Delete message
     try:
 
         await update.message.delete()
 
     except Exception as e:
 
-        print("DELETE ERROR:", e)
+        print("DELETE ERROR:", repr(e))
 
     # =====================================================
-    # FIRST OFFENSE
+    # FIRST WARNING
     # =====================================================
 
-    if warning_count == 1:
+    if count == 1:
 
-        warning_text = f"""
+        try:
+
+            await chat.send_message(
+                f"""
 ⚠️ সতর্কবার্তা!
 
 👤 {user.first_name}
 
-আপনার মেসেজে অশালীন/গালাগালির ভাষা পাওয়া গেছে।
+আপনার মেসেজে গালাগালি/অশালীন ভাষা পাওয়া গেছে।
 
 🚫 অনুগ্রহ করে গালাগালি করবেন না।
+🤝 সবাইকে সম্মান করুন।
 
-🕌 সুন্দর ভাষায় কথা বলুন এবং অন্য সদস্যদের সম্মান করুন।
-
-📚 গ্রুপের নিয়ম:
+🕌 গ্রুপের নিয়ম:
 • গালাগালি নয়
 • অপমান নয়
 • অশালীন কথা নয়
 • সবাইকে সম্মান করুন
 
-⚠️ দ্বিতীয়বার নিয়ম ভঙ্গ করলে আপনাকে গ্রুপ থেকে Kick করা হতে পারে।
+⚠️ দ্বিতীয়বার নিয়ম ভঙ্গ করলে আপনাকে Group থেকে Kick করা হতে পারে।
 """
-
-        try:
-
-            await chat.send_message(
-                warning_text
             )
 
         except Exception as e:
 
-            print("WARNING ERROR:", e)
+            print("WARNING ERROR:", repr(e))
 
         return True
 
     # =====================================================
-    # SECOND OFFENSE
+    # SECOND WARNING → KICK
     # =====================================================
 
-    if warning_count >= 2:
+    if count >= 2:
 
         try:
 
-            # Ban তারপর Unban = Kick
             await context.bot.ban_chat_member(
                 chat.id,
                 user.id
@@ -398,23 +431,21 @@ async def moderate_message(update, context):
                 only_if_banned=True
             )
 
-            kick_text = f"""
-🚨 গ্রুপ থেকে Kick করা হয়েছে
+            await chat.send_message(
+                f"""
+🚨 Group থেকে Kick করা হয়েছে
 
 👤 {user.first_name}
 
 আপনি দ্বিতীয়বার গালাগালি/অশালীন ভাষা ব্যবহার করেছেন।
 
-🕌 অনুগ্রহ করে অন্যদের সম্মান করুন এবং সুন্দর ভাষায় কথা বলুন।
-
-📚 {COMMUNITY_NAME}
+🕌 অনুগ্রহ করে সুন্দর ভাষায় কথা বলুন এবং অন্যদের সম্মান করুন।
 """
-
-            await chat.send_message(kick_text)
+            )
 
         except Exception as e:
 
-            print("KICK ERROR:", e)
+            print("KICK ERROR:", repr(e))
 
             try:
 
@@ -422,16 +453,16 @@ async def moderate_message(update, context):
                     f"""
 ⚠️ {user.first_name}, দ্বিতীয়বার নিয়ম ভঙ্গ হয়েছে।
 
-❗ Bot-এর পর্যাপ্ত permission না থাকায় Kick করা সম্ভব হয়নি।
+❗ Bot-এর প্রয়োজনীয় permission না থাকায় Kick করা সম্ভব হয়নি।
 
-👮 অনুগ্রহ করে Group Admin-এর সাহায্য নিন।
+👮 Group Admin-এর সাহায্য নিন।
 """
                 )
 
             except Exception:
                 pass
 
-        warning_data[key] = 0
+        warnings[key] = 0
 
         return True
 
@@ -442,18 +473,22 @@ async def moderate_message(update, context):
 # /START
 # =========================================================
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def start(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
 
     text = f"""
 🤖 আসসালামু আলাইকুম!
 
 🌟 স্বাগতম {COMMUNITY_NAME}-এর AI Assistant-এ।
 
-👨‍💻 Creator: {CREATOR_NAME}
+👤 Creator: {CREATOR_NAME}
+👑 Owner: {OWNER_USERNAME}
 
 ✨ আমি আপনার প্রশ্নের উত্তর দিতে পারি।
 
-📚 পড়াশোনা
+📚 Education
 💻 Technology
 💰 Business
 ❤️ Feelings
@@ -461,7 +496,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 🌐 Translation
 🎉 Entertainment
 
-👇 শুরু করতে যেকোনো প্রশ্ন লিখুন।
+👇 যেকোনো প্রশ্ন লিখুন।
 """
 
     await update.message.reply_text(text)
@@ -471,7 +506,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # /HELP
 # =========================================================
 
-async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def help_command(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
 
     text = """
 📚 RJ Team Bot Help
@@ -491,7 +529,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 /reset
 ➡️ AI conversation reset
 
-🌐 AI উত্তর পাওয়ার পর Translate button ব্যবহার করতে পারবেন।
+🌐 AI উত্তর পাওয়ার পর Translate button ব্যবহার করুন।
 
 👥 Group-এ গালাগালি করলে moderation system কাজ করবে।
 """
@@ -503,7 +541,10 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # /ABOUT
 # =========================================================
 
-async def about(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def about(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
 
     text = f"""
 🤖 RJ Team AI Assistant
@@ -539,7 +580,10 @@ async def about(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # /OWNERS
 # =========================================================
 
-async def owners(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def owners(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
 
     text = f"""
 👑 RJ Team Team
@@ -608,7 +652,10 @@ async def owners(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # /RESET
 # =========================================================
 
-async def reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def reset(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
 
     context.user_data["history"] = []
 
@@ -647,7 +694,29 @@ def is_creator_question(text):
     )
 
 
-async def creator_answer(update):
+async def creator_answer(
+    update: Update
+):
+
+    text = f"""
+🤖 আমাকে তৈরি করেছে
+
+🇧🇩 **{COMMUNITY_NAME}**
+
+👤 Creator:
+**{CREATOR_NAME}**
+
+👑 Owner:
+**{OWNER_USERNAME}**
+
+🤝 Partner:
+**{PARTNER_USERNAME}**
+
+🛠 Assistant:
+**{ASSISTANT_USERNAME}**
+
+✨ আমি RJ Team-এর AI Assistant।
+"""
 
     keyboard = [
         [
@@ -672,26 +741,6 @@ async def creator_answer(update):
         ]
     ]
 
-    text = f"""
-🤖 আমাকে তৈরি করেছে
-
-🇧🇩 **{COMMUNITY_NAME}**
-
-👤 Creator:
-**{CREATOR_NAME}**
-
-👑 Owner:
-**{OWNER_USERNAME}**
-
-🤝 Partner:
-**{PARTNER_USERNAME}**
-
-🛠 Assistant:
-**{ASSISTANT_USERNAME}**
-
-✨ আমি RJ Team-এর AI Assistant।
-"""
-
     await update.message.reply_text(
         text,
         parse_mode="Markdown",
@@ -703,7 +752,10 @@ async def creator_answer(update):
 # AI REPLY
 # =========================================================
 
-async def ai_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def ai_reply(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
 
     if not update.message:
         return
@@ -713,34 +765,42 @@ async def ai_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not user_text:
         return
 
-    # Creator question
+    # Creator information
     if is_creator_question(user_text):
 
         await creator_answer(update)
 
         return
 
+    # Typing দেখাবে
+    try:
+
+        await update.effective_chat.send_action(
+            ChatAction.TYPING
+        )
+
+    except Exception:
+        pass
+
     history = context.user_data.setdefault(
         "history",
         []
     )
 
-    # Keep last 20 messages
-    history.append(
-        {
-            "role": "user",
-            "content": user_text
-        }
-    )
+    history.append({
+        "role": "user",
+        "content": user_text
+    })
 
-    history = history[-20:]
+    # শুধু শেষ 12 messages রাখি
+    history = history[-12:]
 
     context.user_data["history"] = history
 
     instructions = f"""
 You are RJ Team AI Assistant.
 
-Your community:
+Community:
 {COMMUNITY_NAME}
 
 Creator:
@@ -761,26 +821,19 @@ TikTok:
 YouTube:
 {YOUTUBE_URL}
 
-IMPORTANT:
+RULES:
 
-1. Always understand Bangla and Banglish.
+- Understand Bangla and Banglish.
+- Default reply language is natural Bangla.
+- If user writes English/Banglish, normally reply in Bangla.
+- If user explicitly requests another language, use that language.
+- Give accurate and helpful answers.
+- Keep answers reasonably concise and fast.
+- Do not invent team information.
+- If asked who created you, Creator is {CREATOR_NAME} and community is {COMMUNITY_NAME}.
+- Use topic-appropriate emojis, not excessive emojis.
 
-2. Default response language is Bangla.
-
-3. If the user writes English or Banglish, normally reply in natural Bangla.
-
-4. Only use another language if the user clearly asks for it.
-
-5. Give accurate, helpful and friendly answers.
-
-6. Do not claim that you personally created the user.
-
-7. When asked who created you, say:
-   "{COMMUNITY_NAME} তৈরি করেছে এবং Creator হলো {CREATOR_NAME}."
-
-8. Use emojis according to topic, but do not overuse them.
-
-Love/feelings:
+Love:
 ❤️ 🥰 🌹
 
 Education:
@@ -792,24 +845,21 @@ Technology:
 Business:
 💰 📈 💼
 
-Success/celebration:
+Success:
 🎉 🥳 ✨
 
 Warning:
 ⚠️ 🚨
 
-Useful information:
+Useful:
 💡 ✅
 
-9. If user uses bad language, do not respond with more abuse.
-
-10. Keep answers understandable and natural.
-
-11. Do not invent team information.
+Never encourage abusive language.
 """
 
     try:
 
+        # Fast API request
         response = await client.responses.create(
             model=OPENAI_MODEL,
             instructions=instructions,
@@ -819,34 +869,39 @@ Useful information:
         answer = response.output_text.strip()
 
         if not answer:
-            answer = "দুঃখিত, এখন উত্তর তৈরি করতে পারছি না। একটু পরে আবার চেষ্টা করুন।"
 
-        # Save AI response
-        history.append(
-            {
-                "role": "assistant",
-                "content": answer
-            }
-        )
+            answer = (
+                "দুঃখিত 😊 এখন উত্তর তৈরি করতে পারছি না।"
+            )
 
-        context.user_data["history"] = history[-20:]
+        # Save answer
+        history.append({
+            "role": "assistant",
+            "content": answer
+        })
 
-        # Save last answer for translation
+        context.user_data["history"] = history[-12:]
+
+        # Translation-এর জন্য save
         context.user_data["last_answer"] = answer
 
-        # Telegram message limit
+        # Telegram limit
         chunks = [
             answer[i:i + 4000]
-            for i in range(0, len(answer), 4000)
+            for i in range(
+                0,
+                len(answer),
+                4000
+            )
         ]
 
-        for i, chunk in enumerate(chunks):
+        for index, chunk in enumerate(chunks):
 
             await update.message.reply_text(
                 chunk,
                 reply_markup=(
                     translate_keyboard()
-                    if i == len(chunks) - 1
+                    if index == len(chunks) - 1
                     else None
                 )
             )
@@ -856,21 +911,18 @@ Useful information:
         print("AI ERROR:", repr(e))
 
         await update.message.reply_text(
-            """
-⚠️ দুঃখিত!
-
-এই মুহূর্তে AI উত্তর দিতে সমস্যা হচ্ছে।
-
-💡 কিছুক্ষণ পরে আবার চেষ্টা করুন।
-"""
+            "⚠️ AI উত্তর দিতে সমস্যা হয়েছে। একটু পরে আবার চেষ্টা করুন।"
         )
 
 
 # =========================================================
-# COMBINED TEXT HANDLER
+# ONE TEXT HANDLER
 # =========================================================
 
-async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handle_text(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
 
     if not update.message:
         return
@@ -878,7 +930,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message.text:
         return
 
-    # First moderation
+    # আগে moderation
     moderated = await moderate_message(
         update,
         context
@@ -887,7 +939,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if moderated:
         return
 
-    # Then AI
+    # তারপর AI
     await ai_reply(
         update,
         context
@@ -895,7 +947,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # =========================================================
-# TRANSLATE BUTTON
+# TRANSLATE MENU
 # =========================================================
 
 async def translate_callback(
@@ -907,33 +959,18 @@ async def translate_callback(
 
     await query.answer()
 
-    if query.data == "translate":
+    if query.data != "translate":
+        return
 
-        await query.message.reply_text(
-            "🌐 কোন ভাষায় Translate করতে চান?",
-            reply_markup=language_keyboard()
-        )
+    await query.message.reply_text(
+        "🌐 কোন ভাষায় Translate করতে চান?",
+        reply_markup=language_keyboard()
+    )
 
 
 # =========================================================
-# TRANSLATE LANGUAGE
+# TRANSLATE
 # =========================================================
-
-LANGUAGES = {
-    "lang_en": "English",
-    "lang_hi": "Hindi",
-    "lang_ar": "Arabic",
-    "lang_ur": "Urdu",
-    "lang_zh": "Chinese",
-    "lang_ja": "Japanese",
-    "lang_ko": "Korean",
-    "lang_bn": "Bangla",
-    "lang_fr": "French",
-    "lang_de": "German",
-    "lang_es": "Spanish",
-    "lang_tr": "Turkish",
-}
-
 
 async def language_callback(
     update: Update,
@@ -958,26 +995,30 @@ async def language_callback(
     if not original:
 
         await query.message.reply_text(
-            "⚠️ Translate করার মতো কোনো উত্তর পাওয়া যায়নি।"
+            "⚠️ Translate করার মতো কোনো AI উত্তর পাওয়া যায়নি।"
         )
 
         return
 
     try:
 
+        # Translation request
         response = await client.responses.create(
             model=OPENAI_MODEL,
-            instructions=f"""
-Translate the following text into {language}.
-
-Keep the original meaning.
-Do not add extra information.
-Return only the translation.
-""",
+            instructions=(
+                f"Translate the user's text into {language}. "
+                "Preserve the meaning. "
+                "Return ONLY the translation."
+            ),
             input=original
         )
 
         translated = response.output_text.strip()
+
+        if not translated:
+            raise RuntimeError(
+                "Empty translation response"
+            )
 
         await query.message.reply_text(
             f"🌐 {language}\n\n{translated}"
@@ -985,10 +1026,13 @@ Return only the translation.
 
     except Exception as e:
 
-        print("TRANSLATE ERROR:", repr(e))
+        print(
+            "TRANSLATE ERROR:",
+            repr(e)
+        )
 
         await query.message.reply_text(
-            "⚠️ Translation করতে সমস্যা হয়েছে।"
+            "⚠️ Translation করতে সমস্যা হয়েছে। আবার চেষ্টা করুন।"
         )
 
 
@@ -1010,13 +1054,13 @@ async def main():
             "OPENAI_API_KEY environment variable is missing."
         )
 
-    # Start Render health server
+    # Render health server
     Thread(
         target=start_health_server,
         daemon=True
     ).start()
 
-    # Create application
+    # Telegram Application
     app = (
         Application.builder()
         .token(BOT_TOKEN)
@@ -1059,7 +1103,7 @@ async def main():
         )
     )
 
-    # Welcome new members
+    # New member welcome
     app.add_handler(
         ChatMemberHandler(
             welcome_new_member,
@@ -1068,8 +1112,7 @@ async def main():
     )
 
     # IMPORTANT:
-    # Only ONE normal text handler.
-    # This prevents moderation from blocking private AI messages.
+    # শুধু একটি normal text handler
     app.add_handler(
         MessageHandler(
             filters.TEXT & ~filters.COMMAND,
@@ -1078,7 +1121,7 @@ async def main():
         )
     )
 
-    # Translate
+    # Translate menu
     app.add_handler(
         CallbackQueryHandler(
             translate_callback,
@@ -1086,7 +1129,7 @@ async def main():
         )
     )
 
-    # Language translation
+    # Translation languages
     app.add_handler(
         CallbackQueryHandler(
             language_callback,
