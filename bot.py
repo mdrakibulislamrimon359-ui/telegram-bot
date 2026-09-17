@@ -14,9 +14,9 @@ from telegram.ext import (
     filters,
 )
 
-# ==============================
+# ==========================================
 # RJ TEAM BOT SETTINGS
-# ==============================
+# ==========================================
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
@@ -25,7 +25,13 @@ PORT = int(os.getenv("PORT", "10000"))
 
 COMMUNITY_NAME = "RJ Team Bangladesh Community"
 CREATOR_NAME = "Rakib Sar"
+
 OWNER_USERNAME = "@RJteam1"
+PARTNER_USERNAME = "@Apple20237"
+ASSISTANT_USERNAME = "@Apple20237"
+
+TIKTOK_USERNAME = "lyrics.song333"
+YOUTUBE_LINK = "https://youtube.com/@rakib22"
 
 if not BOT_TOKEN:
     raise RuntimeError("BOT_TOKEN is missing")
@@ -36,9 +42,9 @@ if not OPENAI_API_KEY:
 client = AsyncOpenAI(api_key=OPENAI_API_KEY)
 
 
-# ==============================
-# HEALTH SERVER FOR RENDER
-# ==============================
+# ==========================================
+# RENDER HEALTH SERVER
+# ==========================================
 
 class HealthHandler(BaseHTTPRequestHandler):
 
@@ -57,9 +63,9 @@ def start_health_server():
     server.serve_forever()
 
 
-# ==============================
+# ==========================================
 # TRANSLATE BUTTON
-# ==============================
+# ==========================================
 
 def translate_keyboard():
 
@@ -152,9 +158,9 @@ def language_keyboard():
     ])
 
 
-# ==============================
+# ==========================================
 # START
-# ==============================
+# ==========================================
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
@@ -169,21 +175,17 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         "✨ প্রশ্নের বিষয় অনুযায়ী সুন্দর ও উপযুক্ত Emoji ব্যবহার করব।\n\n"
 
-        "🌐 প্রতিটি AI উত্তরের নিচে "
-        "**Translate** বাটন থাকবে।\n\n"
+        "🌐 প্রতিটি AI উত্তরের নিচে **Translate** বাটন থাকবে।\n\n"
 
         "🚀 শুরু করতে আপনার প্রশ্ন লিখে Send করুন।"
     )
 
 
-# ==============================
+# ==========================================
 # HELP
-# ==============================
+# ==========================================
 
-async def help_command(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE
-):
+async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(
 
@@ -199,62 +201,98 @@ async def help_command(
         "▶️ /start — Bot চালু\n"
         "▶️ /help — Help\n"
         "▶️ /about — Bot সম্পর্কে\n"
-        "▶️ /owners — Creator ও Owner\n"
+        "▶️ /owners — Team Information\n"
         "▶️ /reset — Conversation memory reset"
     )
 
 
-# ==============================
+# ==========================================
 # ABOUT
-# ==============================
+# ==========================================
 
-async def about(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE
-):
+async def about(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(
 
         "🤖 **RJ Team Bot**\n\n"
 
         f"🏠 Community: {COMMUNITY_NAME}\n"
-        f"👤 Creator: {CREATOR_NAME}\n"
-        f"👑 Owner: {OWNER_USERNAME}\n\n"
+        f"👤 Creator: {CREATOR_NAME}\n\n"
 
-        "🇧🇩 বাংলা AI Assistant\n"
+        "👑 Owner: @RJteam1\n"
+        "🤝 Partner: @Apple20237\n"
+        "🛠️ Assistant: @Apple20237\n\n"
+
+        "🎵 TikTok: lyrics.song333\n"
+        "▶️ YouTube: https://youtube.com/@rakib22\n\n"
+
+        "🇧🇩 RJ Team Bangladesh Community\n"
         "✨ Smart • Friendly • Helpful"
     )
 
 
-# ==============================
-# OWNERS
-# ==============================
+# ==========================================
+# OWNERS / TEAM INFORMATION
+# ==========================================
 
-async def owners(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE
-):
+async def owners(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
+    keyboard = InlineKeyboardMarkup([
+
+        [
+            InlineKeyboardButton(
+                "👑 Owner",
+                url="https://t.me/RJteam1"
+            )
+        ],
+
+        [
+            InlineKeyboardButton(
+                "🤝 Partner",
+                url="https://t.me/Apple20237"
+            )
+        ],
+
+        [
+            InlineKeyboardButton(
+                "🛠️ Assistant",
+                url="https://t.me/Apple20237"
+            )
+        ],
+
+        [
+            InlineKeyboardButton(
+                "▶️ YouTube",
+                url=YOUTUBE_LINK
+            )
+        ]
+    ])
 
     await update.message.reply_text(
 
-        "👑 **RJ Team Bot Information**\n\n"
+        "👑 **RJ Team Team Information**\n\n"
 
-        f"🏠 Community: {COMMUNITY_NAME}\n\n"
-        f"👤 Creator: {CREATOR_NAME}\n\n"
-        f"👑 Owner: {OWNER_USERNAME}\n\n"
+        f"👑 **Owner:** {OWNER_USERNAME}\n"
+        f"🤝 **Partner:** {PARTNER_USERNAME}\n"
+        f"🛠️ **Assistant:** {ASSISTANT_USERNAME}\n\n"
 
-        "✨ RJ Team Bangladesh Community"
+        f"🎵 **Owner TikTok:** {TIKTOK_USERNAME}\n"
+        f"▶️ **Owner YouTube:** {YOUTUBE_LINK}\n\n"
+
+        f"🤖 **Created by:** {COMMUNITY_NAME}\n"
+        f"👤 **Creator:** {CREATOR_NAME}\n\n"
+
+        "✨ RJ Team-এর পক্ষ থেকে আপনাকে স্বাগতম! 🇧🇩",
+
+        reply_markup=keyboard
     )
 
 
-# ==============================
+# ==========================================
 # RESET
-# ==============================
+# ==========================================
 
-async def reset(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE
-):
+async def reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     context.user_data["history"] = []
 
@@ -265,9 +303,9 @@ async def reset(
     )
 
 
-# ==============================
-# CREATOR QUESTION DETECTION
-# ==============================
+# ==========================================
+# CREATOR QUESTION
+# ==========================================
 
 def is_creator_question(text):
 
@@ -291,8 +329,7 @@ def is_creator_question(text):
 
         "bot কে বানিয়েছে",
         "bot কে তৈরি করেছে",
-        "creator কে",
-        "owner কে"
+        "creator কে"
     ]
 
     return any(
@@ -305,23 +342,25 @@ def creator_answer():
 
     return (
 
-        "🤖 আমাকে তৈরি করেছে **RJ Team Bangladesh Community**\n\n"
+        "🤖 আমাকে তৈরি করেছে **RJ Team Bangladesh Community** 🇧🇩\n\n"
 
-        "👤 Creator: **Rakib Sar**\n"
-        "👑 Owner: **@RJteam1**\n\n"
+        "👤 **Creator:** Rakib Sar\n"
+        "👑 **Owner:** @RJteam1\n"
+        "🤝 **Partner:** @Apple20237\n"
+        "🛠️ **Assistant:** @Apple20237\n\n"
 
-        "✨ RJ Team Bangladesh Community"
+        "🎵 **TikTok:** lyrics.song333\n"
+        "▶️ **YouTube:** https://youtube.com/@rakib22\n\n"
+
+        "✨ আমি RJ Team-এর AI Assistant।"
     )
 
 
-# ==============================
+# ==========================================
 # AI RESPONSE
-# ==============================
+# ==========================================
 
-async def ai_reply(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE
-):
+async def ai_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if not update.message:
         return
@@ -341,9 +380,7 @@ async def ai_reply(
         answer = creator_answer()
 
         sent = await update.message.reply_text(
-
             answer,
-
             reply_markup=translate_keyboard()
         )
 
@@ -362,15 +399,12 @@ async def ai_reply(
     history.append({
 
         "role": "user",
-
         "content": user_text
 
     })
 
 
-    # Keep last 20 messages
     if len(history) > 20:
-
         history[:] = history[-20:]
 
 
@@ -417,9 +451,21 @@ async def ai_reply(
                 "Be accurate, helpful, friendly and concise. "
 
                 "If asked who created, made, built or owns this bot, "
-                "say it was created by RJ Team Bangladesh Community, "
-                "the creator is Rakib Sar, "
-                "and the owner is @RJteam1."
+                "give the following information: "
+
+                "Created by RJ Team Bangladesh Community. "
+                "Creator: Rakib Sar. "
+                "Owner: @RJteam1. "
+                "Partner: @Apple20237. "
+                "Assistant: @Apple20237. "
+                "TikTok: lyrics.song333. "
+                "YouTube: https://youtube.com/@rakib22. "
+
+                "Do not describe anyone as the owner unless "
+                "the user specifically asks for the owner. "
+                "When giving general creator information, "
+                "say Creator: Rakib Sar and Created by: "
+                "RJ Team Bangladesh Community."
             ),
 
             input=history
@@ -436,11 +482,9 @@ async def ai_reply(
             )
 
 
-        # Save answer
         history.append({
 
             "role": "assistant",
-
             "content": answer
 
         })
@@ -456,9 +500,7 @@ async def ai_reply(
             4000
         ):
 
-            chunk = answer[
-                i:i + 4000
-            ]
+            chunk = answer[i:i + 4000]
 
             sent = await update.message.reply_text(
 
@@ -486,19 +528,15 @@ async def ai_reply(
         )
 
 
-# ==============================
+# ==========================================
 # TRANSLATE MENU
-# ==============================
+# ==========================================
 
-async def translate_button(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE
-):
+async def translate_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     query = update.callback_query
 
     await query.answer()
-
 
     await query.message.reply_text(
 
@@ -509,25 +547,20 @@ async def translate_button(
     )
 
 
-# ==============================
+# ==========================================
 # TRANSLATE
-# ==============================
+# ==========================================
 
-async def translate_text(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE
-):
+async def translate_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     query = update.callback_query
 
     await query.answer()
 
-
     language = query.data.replace(
         "lang_",
         ""
     )
-
 
     answer = context.user_data.get(
         "last_answer"
@@ -598,14 +631,11 @@ async def translate_text(
         )
 
 
-# ==============================
-# CLOSE TRANSLATE MENU
-# ==============================
+# ==========================================
+# CLOSE TRANSLATE
+# ==========================================
 
-async def close_translate(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE
-):
+async def close_translate(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     query = update.callback_query
 
@@ -623,9 +653,9 @@ async def close_translate(
         )
 
 
-# ==============================
+# ==========================================
 # MAIN
-# ==============================
+# ==========================================
 
 async def main():
 
@@ -645,84 +675,57 @@ async def main():
 
     # Commands
     app.add_handler(
-        CommandHandler(
-            "start",
-            start
-        )
+        CommandHandler("start", start)
     )
 
     app.add_handler(
-        CommandHandler(
-            "help",
-            help_command
-        )
+        CommandHandler("help", help_command)
     )
 
     app.add_handler(
-        CommandHandler(
-            "about",
-            about
-        )
+        CommandHandler("about", about)
     )
 
     app.add_handler(
-        CommandHandler(
-            "owners",
-            owners
-        )
+        CommandHandler("owners", owners)
     )
 
     app.add_handler(
-        CommandHandler(
-            "reset",
-            reset
-        )
+        CommandHandler("reset", reset)
     )
 
 
-    # Translate button
+    # Translate
     app.add_handler(
-
         CallbackQueryHandler(
-
             translate_button,
-
             pattern="^translate$"
         )
     )
 
 
-    # Language buttons
+    # Language
     app.add_handler(
-
         CallbackQueryHandler(
-
             translate_text,
-
             pattern="^lang_"
         )
     )
 
 
-    # Close button
+    # Close
     app.add_handler(
-
         CallbackQueryHandler(
-
             close_translate,
-
             pattern="^close_translate$"
         )
     )
 
 
-    # Normal text → AI
+    # Normal messages
     app.add_handler(
-
         MessageHandler(
-
             filters.TEXT & ~filters.COMMAND,
-
             ai_reply
         )
     )
@@ -747,15 +750,13 @@ async def main():
     finally:
 
         await app.updater.stop()
-
         await app.stop()
-
         await app.shutdown()
 
 
-# ==============================
+# ==========================================
 # RUN
-# ==============================
+# ==========================================
 
 if __name__ == "__main__":
 
