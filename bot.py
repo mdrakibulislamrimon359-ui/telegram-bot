@@ -4,21 +4,25 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from threading import Thread
 
 from openai import AsyncOpenAI
-from telegram import Update
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     Application,
     CommandHandler,
     MessageHandler,
+    CallbackQueryHandler,
     ContextTypes,
     filters,
 )
+
+# ==============================
+# RJ TEAM BOT SETTINGS
+# ==============================
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-5.6-luna")
 PORT = int(os.getenv("PORT", "10000"))
 
-# RJ Team Information
 COMMUNITY_NAME = "RJ Team Bangladesh Community"
 CREATOR_NAME = "Rakib Sar"
 OWNER_USERNAME = "@RJteam1"
@@ -32,7 +36,12 @@ if not OPENAI_API_KEY:
 client = AsyncOpenAI(api_key=OPENAI_API_KEY)
 
 
+# ==============================
+# HEALTH SERVER FOR RENDER
+# ==============================
+
 class HealthHandler(BaseHTTPRequestHandler):
+
     def do_GET(self):
         self.send_response(200)
         self.send_header("Content-Type", "text/plain")
@@ -48,57 +57,224 @@ def start_health_server():
     server.serve_forever()
 
 
+# ==============================
+# TRANSLATE BUTTON
+# ==============================
+
+def translate_keyboard():
+
+    return InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton(
+                "🌐 Translate",
+                callback_data="translate"
+            )
+        ]
+    ])
+
+
+def language_keyboard():
+
+    return InlineKeyboardMarkup([
+
+        [
+            InlineKeyboardButton(
+                "🇬🇧 English",
+                callback_data="lang_English"
+            ),
+            InlineKeyboardButton(
+                "🇮🇳 Hindi",
+                callback_data="lang_Hindi"
+            ),
+        ],
+
+        [
+            InlineKeyboardButton(
+                "🇸🇦 Arabic",
+                callback_data="lang_Arabic"
+            ),
+            InlineKeyboardButton(
+                "🇵🇰 Urdu",
+                callback_data="lang_Urdu"
+            ),
+        ],
+
+        [
+            InlineKeyboardButton(
+                "🇨🇳 Chinese",
+                callback_data="lang_Chinese"
+            ),
+            InlineKeyboardButton(
+                "🇯🇵 Japanese",
+                callback_data="lang_Japanese"
+            ),
+        ],
+
+        [
+            InlineKeyboardButton(
+                "🇰🇷 Korean",
+                callback_data="lang_Korean"
+            ),
+            InlineKeyboardButton(
+                "🇧🇩 Bangla",
+                callback_data="lang_Bangla"
+            ),
+        ],
+
+        [
+            InlineKeyboardButton(
+                "🇫🇷 French",
+                callback_data="lang_French"
+            ),
+            InlineKeyboardButton(
+                "🇩🇪 German",
+                callback_data="lang_German"
+            ),
+        ],
+
+        [
+            InlineKeyboardButton(
+                "🇪🇸 Spanish",
+                callback_data="lang_Spanish"
+            ),
+            InlineKeyboardButton(
+                "🇹🇷 Turkish",
+                callback_data="lang_Turkish"
+            ),
+        ],
+
+        [
+            InlineKeyboardButton(
+                "❌ Close",
+                callback_data="close_translate"
+            )
+        ]
+    ])
+
+
+# ==============================
+# START
+# ==============================
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
     await update.message.reply_text(
-        "👋 Assalamu Alaikum!\n\n"
-        "আমি RJ Team Bot 🤖\n"
-        "আপনি যেকোনো প্রশ্ন করতে পারেন।\n\n"
-        "💡 শুধু আপনার প্রশ্ন লিখে Send করুন।"
+
+        "👋 আসসালামু আলাইকুম! 🌸\n\n"
+
+        "🤖 আমি **RJ Team Bot**\n\n"
+
+        "💬 আপনি আমাকে যেকোনো প্রশ্ন করতে পারেন।\n"
+        "🇧🇩 আমি সাধারণভাবে বাংলায় উত্তর দেব।\n\n"
+
+        "✨ প্রশ্নের বিষয় অনুযায়ী সুন্দর ও উপযুক্ত Emoji ব্যবহার করব।\n\n"
+
+        "🌐 প্রতিটি AI উত্তরের নিচে "
+        "**Translate** বাটন থাকবে।\n\n"
+
+        "🚀 শুরু করতে আপনার প্রশ্ন লিখে Send করুন।"
     )
 
 
-async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# ==============================
+# HELP
+# ==============================
+
+async def help_command(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
+
     await update.message.reply_text(
-        "🤖 RJ Team Bot Help\n\n"
-        "• যেকোনো প্রশ্ন সরাসরি লিখুন\n"
-        "• /start — Bot চালু\n"
-        "• /help — Help\n"
-        "• /about — Bot সম্পর্কে\n"
-        "• /owners — Creator ও Owner তথ্য\n"
-        "• /reset — Memory reset"
+
+        "🤖 **RJ Team Bot Help**\n\n"
+
+        "💬 যেকোনো প্রশ্ন সরাসরি লিখুন\n"
+        "🇧🇩 উত্তর সাধারণভাবে বাংলায় পাবেন\n"
+        "✨ প্রশ্ন অনুযায়ী সুন্দর Emoji থাকবে\n"
+        "🌐 Translate দিয়ে বিভিন্ন ভাষায় অনুবাদ করতে পারবেন\n\n"
+
+        "📌 Commands:\n\n"
+
+        "▶️ /start — Bot চালু\n"
+        "▶️ /help — Help\n"
+        "▶️ /about — Bot সম্পর্কে\n"
+        "▶️ /owners — Creator ও Owner\n"
+        "▶️ /reset — Conversation memory reset"
     )
 
 
-async def about(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# ==============================
+# ABOUT
+# ==============================
+
+async def about(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
+
     await update.message.reply_text(
-        "🤖 RJ Team Bot\n\n"
+
+        "🤖 **RJ Team Bot**\n\n"
+
         f"🏠 Community: {COMMUNITY_NAME}\n"
         f"👤 Creator: {CREATOR_NAME}\n"
         f"👑 Owner: {OWNER_USERNAME}\n\n"
-        "AI-powered Telegram assistant."
+
+        "🇧🇩 বাংলা AI Assistant\n"
+        "✨ Smart • Friendly • Helpful"
     )
 
 
-async def owners(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# ==============================
+# OWNERS
+# ==============================
+
+async def owners(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
+
     await update.message.reply_text(
-        "👑 RJ Team Bot Information\n\n"
-        f"🏠 Community: {COMMUNITY_NAME}\n"
-        f"👤 Creator: {CREATOR_NAME}\n"
-        f"👑 Owner: {OWNER_USERNAME}"
+
+        "👑 **RJ Team Bot Information**\n\n"
+
+        f"🏠 Community: {COMMUNITY_NAME}\n\n"
+        f"👤 Creator: {CREATOR_NAME}\n\n"
+        f"👑 Owner: {OWNER_USERNAME}\n\n"
+
+        "✨ RJ Team Bangladesh Community"
     )
 
 
-async def reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# ==============================
+# RESET
+# ==============================
+
+async def reset(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
+
     context.user_data["history"] = []
+
     await update.message.reply_text(
-        "✅ আপনার conversation memory reset করা হয়েছে।"
+
+        "🧹 Conversation memory reset করা হয়েছে।\n\n"
+        "✨ এখন নতুন করে কথা বলতে পারেন।"
     )
 
 
-def is_creator_question(text: str) -> bool:
+# ==============================
+# CREATOR QUESTION DETECTION
+# ==============================
+
+def is_creator_question(text):
+
     text = text.lower().strip()
 
     keywords = [
+
         "আপনাকে কে বানিয়েছে",
         "কে বানিয়েছে",
         "কে তৈরি করেছে",
@@ -106,29 +282,51 @@ def is_creator_question(text: str) -> bool:
         "কে তোমাকে তৈরি করেছে",
         "তোমাকে কে বানিয়েছে",
         "তোমাকে কে তৈরি করেছে",
+
         "who made you",
         "who created you",
         "who built you",
         "who is your creator",
         "who created this bot",
+
         "bot কে বানিয়েছে",
         "bot কে তৈরি করেছে",
         "creator কে",
+        "owner কে"
     ]
 
-    return any(keyword in text for keyword in keywords)
-
-
-def creator_answer() -> str:
-    return (
-        "🤖 আমাকে তৈরি করেছে RJ Team Bangladesh Community\n"
-        "👤 Creator: Rakib Sar\n"
-        "👑 Owner: @RJteam1"
+    return any(
+        keyword in text
+        for keyword in keywords
     )
 
 
-async def ai_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not update.message or not update.message.text:
+def creator_answer():
+
+    return (
+
+        "🤖 আমাকে তৈরি করেছে **RJ Team Bangladesh Community**\n\n"
+
+        "👤 Creator: **Rakib Sar**\n"
+        "👑 Owner: **@RJteam1**\n\n"
+
+        "✨ RJ Team Bangladesh Community"
+    )
+
+
+# ==============================
+# AI RESPONSE
+# ==============================
+
+async def ai_reply(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
+
+    if not update.message:
+        return
+
+    if not update.message.text:
         return
 
     user_text = update.message.text.strip()
@@ -136,82 +334,429 @@ async def ai_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not user_text:
         return
 
-    # Creator/Owner প্রশ্নের নির্দিষ্ট উত্তর
+
+    # Creator question
     if is_creator_question(user_text):
-        await update.message.reply_text(creator_answer())
+
+        answer = creator_answer()
+
+        sent = await update.message.reply_text(
+
+            answer,
+
+            reply_markup=translate_keyboard()
+        )
+
+        context.user_data["last_answer"] = answer
+        context.user_data["last_message_id"] = sent.message_id
+
         return
 
-    history = context.user_data.setdefault("history", [])
+
+    # Conversation history
+    history = context.user_data.setdefault(
+        "history",
+        []
+    )
 
     history.append({
+
         "role": "user",
+
         "content": user_text
+
     })
 
+
+    # Keep last 20 messages
     if len(history) > 20:
+
         history[:] = history[-20:]
 
+
     try:
+
         response = await client.responses.create(
+
             model=OPENAI_MODEL,
+
             instructions=(
-                "You are RJ Team Bot, a helpful and friendly Telegram AI assistant. "
-                "Answer clearly and accurately. "
-                "The user may write Bangla, Banglish, or English. "
-                "Reply in the same language when practical. "
-                "Be concise but helpful. "
-                "If asked who created, made, built, or owns this bot, "
+
+                "You are RJ Team Bot, a helpful, friendly and smart "
+                "Telegram AI assistant. "
+
+                "IMPORTANT LANGUAGE RULE: "
+                "Always answer in natural Bangla/Bengali by default, "
+                "even when the user asks in English or Banglish. "
+
+                "Only use another language when the user explicitly "
+                "requests another language. "
+
+                "Make answers easy to understand and useful. "
+
+                "Use beautiful and relevant emojis according to "
+                "the topic and mood of the user's message. "
+
+                "For example: "
+                "education can use 📚🎓✍️, "
+                "technology can use 💻🤖⚙️, "
+                "business can use 💰📈💼, "
+                "love or feelings can use ❤️🥰🌹, "
+                "success can use 🎉🏆✨, "
+                "warning can use ⚠️🚨, "
+                "general useful information can use 💡✅. "
+
+                "Do NOT use too many emojis. "
+                "Do NOT put random emojis everywhere. "
+                "Use emojis naturally to make the answer "
+                "beautiful and friendly. "
+
+                "Use short paragraphs, headings and bullet points "
+                "when they improve readability. "
+
+                "Be accurate, helpful, friendly and concise. "
+
+                "If asked who created, made, built or owns this bot, "
                 "say it was created by RJ Team Bangladesh Community, "
-                "the creator is Rakib Sar, and the owner is @RJteam1."
+                "the creator is Rakib Sar, "
+                "and the owner is @RJteam1."
             ),
-            input=history,
+
+            input=history
         )
+
 
         answer = response.output_text.strip()
 
-        if not answer:
-            answer = "দুঃখিত, এখন কোনো উত্তর পাওয়া যায়নি।"
 
+        if not answer:
+
+            answer = (
+                "😔 দুঃখিত, এখন কোনো উত্তর পাওয়া যায়নি।"
+            )
+
+
+        # Save answer
         history.append({
+
             "role": "assistant",
+
             "content": answer
+
         })
 
-        for i in range(0, len(answer), 4000):
-            await update.message.reply_text(answer[i:i + 4000])
+
+        context.user_data["last_answer"] = answer
+
+
+        # Telegram message limit
+        for i in range(
+            0,
+            len(answer),
+            4000
+        ):
+
+            chunk = answer[
+                i:i + 4000
+            ]
+
+            sent = await update.message.reply_text(
+
+                chunk,
+
+                reply_markup=translate_keyboard()
+            )
+
+            context.user_data[
+                "last_message_id"
+            ] = sent.message_id
+
 
     except Exception as e:
-        print("AI ERROR:", repr(e))
+
+        print(
+            "AI ERROR:",
+            repr(e)
+        )
+
         await update.message.reply_text(
-            "❌ AI উত্তর দিতে সমস্যা হচ্ছে। একটু পরে আবার চেষ্টা করুন।"
+
+            "❌ দুঃখিত, AI উত্তর দিতে সমস্যা হচ্ছে।\n"
+            "⏳ একটু পরে আবার চেষ্টা করুন।"
         )
 
 
-async def main():
-    Thread(target=start_health_server, daemon=True).start()
+# ==============================
+# TRANSLATE MENU
+# ==============================
 
-    app = Application.builder().token(BOT_TOKEN).build()
+async def translate_button(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
 
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("help", help_command))
-    app.add_handler(CommandHandler("about", about))
-    app.add_handler(CommandHandler("owners", owners))
-    app.add_handler(CommandHandler("reset", reset))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, ai_reply))
+    query = update.callback_query
 
-    print("RJ Team Bot is running...")
+    await query.answer()
 
-    await app.initialize()
-    await app.start()
-    await app.updater.start_polling()
+
+    await query.message.reply_text(
+
+        "🌐 **কোন ভাষায় Translate করতে চান?**\n\n"
+        "👇 আপনার পছন্দের ভাষায় চাপ দিন।",
+
+        reply_markup=language_keyboard()
+    )
+
+
+# ==============================
+# TRANSLATE
+# ==============================
+
+async def translate_text(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
+
+    query = update.callback_query
+
+    await query.answer()
+
+
+    language = query.data.replace(
+        "lang_",
+        ""
+    )
+
+
+    answer = context.user_data.get(
+        "last_answer"
+    )
+
+
+    if not answer:
+
+        await query.message.reply_text(
+
+            "❌ Translate করার মতো কোনো "
+            "সাম্প্রতিক উত্তর পাওয়া যায়নি।"
+        )
+
+        return
+
 
     try:
+
+        response = await client.responses.create(
+
+            model=OPENAI_MODEL,
+
+            instructions=(
+
+                f"Translate the following text accurately "
+                f"into {language}. "
+
+                "Keep the original meaning and important details. "
+
+                "Do not add extra information. "
+
+                "Make the translation natural and easy to understand."
+            ),
+
+            input=answer
+        )
+
+
+        translated = response.output_text.strip()
+
+
+        if not translated:
+
+            translated = (
+                "❌ Translation পাওয়া যায়নি।"
+            )
+
+
+        await query.message.reply_text(
+
+            f"🌐 **{language} Translation**\n\n"
+            f"{translated}"
+        )
+
+
+    except Exception as e:
+
+        print(
+            "TRANSLATE ERROR:",
+            repr(e)
+        )
+
+        await query.message.reply_text(
+
+            "❌ Translation করতে সমস্যা হয়েছে।\n"
+            "⏳ একটু পরে আবার চেষ্টা করুন।"
+        )
+
+
+# ==============================
+# CLOSE TRANSLATE MENU
+# ==============================
+
+async def close_translate(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
+
+    query = update.callback_query
+
+    await query.answer()
+
+
+    try:
+
+        await query.message.delete()
+
+    except Exception:
+
+        await query.message.edit_text(
+            "❌ Translate menu বন্ধ করা হয়েছে।"
+        )
+
+
+# ==============================
+# MAIN
+# ==============================
+
+async def main():
+
+    Thread(
+        target=start_health_server,
+        daemon=True
+    ).start()
+
+
+    app = (
+        Application
+        .builder()
+        .token(BOT_TOKEN)
+        .build()
+    )
+
+
+    # Commands
+    app.add_handler(
+        CommandHandler(
+            "start",
+            start
+        )
+    )
+
+    app.add_handler(
+        CommandHandler(
+            "help",
+            help_command
+        )
+    )
+
+    app.add_handler(
+        CommandHandler(
+            "about",
+            about
+        )
+    )
+
+    app.add_handler(
+        CommandHandler(
+            "owners",
+            owners
+        )
+    )
+
+    app.add_handler(
+        CommandHandler(
+            "reset",
+            reset
+        )
+    )
+
+
+    # Translate button
+    app.add_handler(
+
+        CallbackQueryHandler(
+
+            translate_button,
+
+            pattern="^translate$"
+        )
+    )
+
+
+    # Language buttons
+    app.add_handler(
+
+        CallbackQueryHandler(
+
+            translate_text,
+
+            pattern="^lang_"
+        )
+    )
+
+
+    # Close button
+    app.add_handler(
+
+        CallbackQueryHandler(
+
+            close_translate,
+
+            pattern="^close_translate$"
+        )
+    )
+
+
+    # Normal text → AI
+    app.add_handler(
+
+        MessageHandler(
+
+            filters.TEXT & ~filters.COMMAND,
+
+            ai_reply
+        )
+    )
+
+
+    print(
+        "RJ Team Bot is running..."
+    )
+
+
+    await app.initialize()
+
+    await app.start()
+
+    await app.updater.start_polling()
+
+
+    try:
+
         await asyncio.Event().wait()
+
     finally:
+
         await app.updater.stop()
+
         await app.stop()
+
         await app.shutdown()
 
 
+# ==============================
+# RUN
+# ==============================
+
 if __name__ == "__main__":
+
     asyncio.run(main())
