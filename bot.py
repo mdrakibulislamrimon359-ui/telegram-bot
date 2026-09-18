@@ -1,10 +1,17 @@
 import os
 import asyncio
 import logging
+import time
 from threading import Thread
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
-from openai import AsyncOpenAI
+from openai import (
+    AsyncOpenAI,
+    RateLimitError,
+    APIError,
+    APIConnectionError,
+)
+
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.constants import ChatAction
 from telegram.ext import (
@@ -49,7 +56,9 @@ logger = logging.getLogger("RJ_TEAM_AI")
 # =========================================================
 
 if not BOT_TOKEN:
-    raise RuntimeError("BOT_TOKEN পাওয়া যায়নি। Render Environment Variables চেক করুন।")
+    raise RuntimeError(
+        "BOT_TOKEN পাওয়া যায়নি। Render Environment Variables চেক করুন।"
+    )
 
 if not OPENAI_API_KEY:
     raise RuntimeError(
@@ -60,7 +69,9 @@ if not OPENAI_API_KEY:
 # OPENAI CLIENT
 # =========================================================
 
-client = AsyncOpenAI(api_key=OPENAI_API_KEY)
+client = AsyncOpenAI(
+    api_key=OPENAI_API_KEY
+)
 
 # =========================================================
 # USER MEMORY
@@ -71,6 +82,18 @@ user_history = {}
 MAX_HISTORY = 12
 
 # =========================================================
+# RATE LIMIT PROTECTION
+# =========================================================
+
+# OpenAI 429 পাওয়ার পর 30 মিনিট নতুন request বন্ধ থাকবে।
+# আপনার বর্তমান error-এ প্রায় 29 মিনিট cooldown ছিল,
+# তাই 30 মিনিট রাখা হয়েছে।
+
+RATE_LIMIT_COOLDOWN = 30 * 60
+
+rate_limit_until = 0
+
+# =========================================================
 # AI SYSTEM PROMPT
 # =========================================================
 
@@ -78,17 +101,20 @@ SYSTEM_PROMPT = """
 তুমি RJ Team AI Community Bangladesh-এর official AI assistant।
 
 তোমার কাজ:
+
 - ব্যবহারকারীর প্রশ্নের সঠিক ও সহজ উত্তর দেওয়া।
 - ব্যবহারকারী বাংলা লিখলে বাংলায় উত্তর দেওয়া।
 - Banglish লিখলে সহজ বাংলা/Banglish-এ উত্তর দেওয়া।
 - English প্রশ্ন হলে English-এ উত্তর দেওয়া।
 - প্রয়োজন হলে উদাহরণ দিয়ে বোঝানো।
-- Programming, Telegram Bot, AI, OpenAI, Technology, Translation ইত্যাদিতে সাহায্য করা।
-- উত্তর সংক্ষিপ্ত, পরিষ্কার এবং বন্ধুত্বপূর্ণ রাখা।
+- Programming, Telegram Bot, AI, OpenAI, Technology,
+  Translation ইত্যাদিতে সাহায্য করা।
+- উত্তর পরিষ্কার, সংক্ষিপ্ত এবং বন্ধুত্বপূর্ণ রাখা।
 - নিজের সম্পর্কে মিথ্যা দাবি করা যাবে না।
 - তুমি RJ Team AI Community Bangladesh-এর AI Assistant।
 - কেউ Owner সম্পর্কে জিজ্ঞেস করলে Owner হিসেবে @RJteam1 বলবে।
-- Partner/Assistant হিসেবে @Apple20237 বলবে।
+- Partner হিসেবে @Apple20237 বলবে।
+- Assistant হিসেবে @Apple20237 বলবে।
 """
 
 # =========================================================
@@ -99,8 +125,14 @@ class HealthHandler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         self.send_response(200)
-        self.send_header("Content-Type", "text/plain; charset=utf-8")
+
+        self.send_header(
+            "Content-Type",
+            "text/plain; charset=utf-8"
+        )
+
         self.end_headers()
+
         self.wfile.write(
             b"RJ Team AI Community Bangladesh is running successfully."
         )
@@ -110,8 +142,16 @@ class HealthHandler(BaseHTTPRequestHandler):
 
 
 def run_health_server():
-    server = HTTPServer(("0.0.0.0", PORT), HealthHandler)
-    logger.info(f"Health server running on port {PORT}")
+
+    server = HTTPServer(
+        ("0.0.0.0", PORT),
+        HealthHandler
+    )
+
+    logger.info(
+        f"Health server running on port {PORT}"
+    )
+
     server.serve_forever()
 
 
@@ -119,20 +159,37 @@ def run_health_server():
 # START
 # =========================================================
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def start(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
 
     keyboard = [
         [
-            InlineKeyboardButton("ℹ️ About", callback_data="about"),
-            InlineKeyboardButton("👑 Owners", callback_data="owners"),
+            InlineKeyboardButton(
+                "ℹ️ About",
+                callback_data="about"
+            ),
+            InlineKeyboardButton(
+                "👑 Owners",
+                callback_data="owners"
+            ),
         ],
         [
-            InlineKeyboardButton("🌐 Translate", callback_data="translate"),
-            InlineKeyboardButton("❓ Help", callback_data="help"),
+            InlineKeyboardButton(
+                "🌐 Translate",
+                callback_data="translate"
+            ),
+            InlineKeyboardButton(
+                "❓ Help",
+                callback_data="help"
+            ),
         ],
     ]
 
-    reply_markup = InlineKeyboardMarkup(keyboard)
+    reply_markup = InlineKeyboardMarkup(
+        keyboard
+    )
 
     text = (
         f"🤖 <b>{BOT_NAME}</b>\n\n"
@@ -154,7 +211,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # HELP
 # =========================================================
 
-async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def help_command(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
 
     text = (
         "❓ <b>RJ Team AI Bot Help</b>\n\n"
@@ -170,7 +230,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(
         text,
-        parse_mode="HTML",
+        parse_mode="HTML"
     )
 
 
@@ -178,7 +238,10 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ABOUT
 # =========================================================
 
-async def about(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def about(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
 
     text = (
         "🤖 <b>RJ Team AI Community Bangladesh</b>\n\n"
@@ -190,7 +253,7 @@ async def about(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(
         text,
-        parse_mode="HTML",
+        parse_mode="HTML"
     )
 
 
@@ -198,7 +261,10 @@ async def about(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # OWNERS
 # =========================================================
 
-async def owners(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def owners(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
 
     text = (
         "👑 <b>RJ Team Information</b>\n\n"
@@ -212,7 +278,7 @@ async def owners(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(
         text,
-        parse_mode="HTML",
+        parse_mode="HTML"
     )
 
 
@@ -220,11 +286,17 @@ async def owners(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # RESET
 # =========================================================
 
-async def reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def reset(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
 
     user_id = update.effective_user.id
 
-    user_history.pop(user_id, None)
+    user_history.pop(
+        user_id,
+        None
+    )
 
     await update.message.reply_text(
         "🔄 আপনার AI conversation memory reset করা হয়েছে।\n\n"
@@ -236,14 +308,50 @@ async def reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # AI RESPONSE
 # =========================================================
 
-async def ai_reply(user_id: int, user_text: str):
+async def ai_reply(
+    user_id: int,
+    user_text: str
+):
+
+    global rate_limit_until
+
+    # -----------------------------------------------------
+    # Check global OpenAI cooldown
+    # -----------------------------------------------------
+
+    now = time.time()
+
+    if now < rate_limit_until:
+
+        remaining = int(
+            rate_limit_until - now
+        )
+
+        minutes = max(
+            1,
+            (remaining + 59) // 60
+        )
+
+        return (
+            "⏳ <b>AI সাময়িকভাবে সীমিত আছে</b>\n\n"
+            f"OpenAI request limit শেষ হয়েছে।\n"
+            f"প্রায় <b>{minutes} মিনিট</b> পরে আবার চেষ্টা করুন। 🤖\n\n"
+            "🇧🇩 RJ Team AI Community"
+        )
+
+    # -----------------------------------------------------
+    # Create user history
+    # -----------------------------------------------------
 
     if user_id not in user_history:
         user_history[user_id] = []
 
     history = user_history[user_id]
 
+    # -----------------------------------------------------
     # Add user message
+    # -----------------------------------------------------
+
     history.append(
         {
             "role": "user",
@@ -251,10 +359,14 @@ async def ai_reply(user_id: int, user_text: str):
         }
     )
 
-    # Keep only recent messages
+    # Keep recent messages
     history = history[-MAX_HISTORY:]
 
     try:
+
+        logger.info(
+            f"OpenAI request | user_id={user_id}"
+        )
 
         response = await client.responses.create(
             model=OPENAI_MODEL,
@@ -262,14 +374,24 @@ async def ai_reply(user_id: int, user_text: str):
             input=history,
         )
 
-        answer = getattr(response, "output_text", None)
+        answer = getattr(
+            response,
+            "output_text",
+            None
+        )
 
         if not answer:
-            answer = "দুঃখিত, এই মুহূর্তে কোনো উত্তর পাওয়া যায়নি।"
+
+            answer = (
+                "দুঃখিত, এই মুহূর্তে কোনো উত্তর পাওয়া যায়নি।"
+            )
 
         answer = answer.strip()
 
+        # -------------------------------------------------
         # Save assistant answer
+        # -------------------------------------------------
+
         history.append(
             {
                 "role": "assistant",
@@ -281,22 +403,100 @@ async def ai_reply(user_id: int, user_text: str):
 
         return answer
 
-    except Exception as e:
+    # =====================================================
+    # OPENAI 429 RATE LIMIT
+    # =====================================================
 
-        logger.exception("OPENAI ERROR")
+    except RateLimitError as e:
+
+        logger.error(
+            "OPENAI 429 RATE LIMIT: %s",
+            repr(e)
+        )
 
         # Remove failed user message
-        if history and history[-1].get("role") == "user":
+        if (
+            history
+            and history[-1].get("role") == "user"
+        ):
             history.pop()
 
-        # Give useful error for debugging
-        error_message = str(e)
+        # Start 30 minute cooldown
+        rate_limit_until = (
+            time.time()
+            + RATE_LIMIT_COOLDOWN
+        )
+
+        return (
+            "⚠️ <b>AI Request Limit শেষ হয়েছে!</b>\n\n"
+            "আজকের OpenAI request limit পূর্ণ হয়েছে।\n"
+            "কিছুক্ষণ পরে আবার চেষ্টা করুন। ⏳\n\n"
+            "🤖 RJ Team AI Community Bangladesh 🇧🇩"
+        )
+
+    # =====================================================
+    # CONNECTION ERROR
+    # =====================================================
+
+    except APIConnectionError as e:
+
+        logger.error(
+            "OPENAI CONNECTION ERROR: %s",
+            repr(e)
+        )
+
+        if (
+            history
+            and history[-1].get("role") == "user"
+        ):
+            history.pop()
+
+        return (
+            "⚠️ OpenAI server-এর সাথে সংযোগ করা যাচ্ছে না।\n\n"
+            "কিছুক্ষণ পরে আবার চেষ্টা করুন। 🔄"
+        )
+
+    # =====================================================
+    # API ERROR
+    # =====================================================
+
+    except APIError as e:
+
+        logger.error(
+            "OPENAI API ERROR: %s",
+            repr(e)
+        )
+
+        if (
+            history
+            and history[-1].get("role") == "user"
+        ):
+            history.pop()
+
+        return (
+            "⚠️ AI service-এ সাময়িক সমস্যা হচ্ছে।\n\n"
+            "কিছুক্ষণ পরে আবার চেষ্টা করুন। 🔄"
+        )
+
+    # =====================================================
+    # UNKNOWN ERROR
+    # =====================================================
+
+    except Exception as e:
+
+        logger.exception(
+            "OPENAI UNKNOWN ERROR"
+        )
+
+        if (
+            history
+            and history[-1].get("role") == "user"
+        ):
+            history.pop()
 
         return (
             "❌ AI উত্তর দিতে সমস্যা হচ্ছে।\n\n"
-            "🔧 OpenAI Error:\n"
-            f"{error_message[:1200]}\n\n"
-            "⚠️ Render-এর OPENAI_API_KEY এবং OPENAI_MODEL চেক করুন।"
+            "কিছুক্ষণ পরে আবার চেষ্টা করুন।"
         )
 
 
@@ -304,12 +504,19 @@ async def ai_reply(user_id: int, user_text: str):
 # TEXT MESSAGE
 # =========================================================
 
-async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handle_message(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
 
-    if not update.message or not update.message.text:
+    if (
+        not update.message
+        or not update.message.text
+    ):
         return
 
     user_id = update.effective_user.id
+
     user_text = update.message.text.strip()
 
     if not user_text:
@@ -317,10 +524,15 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Typing indicator
     try:
-        await update.message.chat.send_action(ChatAction.TYPING)
+
+        await update.message.chat.send_action(
+            ChatAction.TYPING
+        )
+
     except Exception:
         pass
 
+    # AI response
     answer = await ai_reply(
         user_id=user_id,
         user_text=user_text,
@@ -330,19 +542,22 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [
             InlineKeyboardButton(
                 "🌐 Translate",
-                callback_data="translate",
+                callback_data="translate"
             ),
             InlineKeyboardButton(
                 "🔄 Reset",
-                callback_data="reset",
+                callback_data="reset"
             ),
         ]
     ]
 
-    reply_markup = InlineKeyboardMarkup(keyboard)
+    reply_markup = InlineKeyboardMarkup(
+        keyboard
+    )
 
     await update.message.reply_text(
         answer,
+        parse_mode="HTML",
         reply_markup=reply_markup,
     )
 
@@ -351,7 +566,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # CALLBACK BUTTONS
 # =========================================================
 
-async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def button_handler(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
 
     query = update.callback_query
 
@@ -359,68 +577,92 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     user_id = query.from_user.id
 
+    # -----------------------------------------------------
+    # ABOUT
+    # -----------------------------------------------------
+
     if query.data == "about":
 
         text = (
             "🤖 <b>RJ Team AI Community Bangladesh</b>\n\n"
-            "🇧🇩 বাংলাদেশের AI ও Technology Community\n"
+            "🇧🇩 বাংলাদেশের AI ও Technology Community\n\n"
             "💡 AI • Technology • Tools • Translation\n"
             "🚀 Learn • Create • Share • Connect"
         )
 
         await query.message.reply_text(
             text,
-            parse_mode="HTML",
+            parse_mode="HTML"
         )
+
+    # -----------------------------------------------------
+    # OWNERS
+    # -----------------------------------------------------
 
     elif query.data == "owners":
 
         text = (
             "👑 <b>RJ Team</b>\n\n"
-            f"Owner: {OWNER}\n"
-            f"Partner: {PARTNER}\n"
-            f"Assistant: {ASSISTANT}\n\n"
+            f"👑 Owner: {OWNER}\n"
+            f"🤝 Partner: {PARTNER}\n"
+            f"🧑‍💻 Assistant: {ASSISTANT}\n\n"
             f"🎵 TikTok: {TIKTOK}\n"
             f"▶️ YouTube: {YOUTUBE}"
         )
 
         await query.message.reply_text(
             text,
-            parse_mode="HTML",
+            parse_mode="HTML"
         )
+
+    # -----------------------------------------------------
+    # HELP
+    # -----------------------------------------------------
 
     elif query.data == "help":
 
         text = (
-            "❓ <b>Help</b>\n\n"
-            "/start - Bot চালু\n"
-            "/help - Help\n"
-            "/about - About\n"
-            "/owners - Team information\n"
-            "/reset - AI memory reset\n\n"
+            "❓ <b>RJ Team AI Bot Help</b>\n\n"
+            "/start - 🚀 Bot চালু\n"
+            "/help - ❓ Help\n"
+            "/about - ℹ️ About\n"
+            "/owners - 👑 Team information\n"
+            "/reset - 🔄 AI memory reset\n\n"
             "💬 প্রশ্ন লিখে পাঠান।"
         )
 
         await query.message.reply_text(
             text,
-            parse_mode="HTML",
+            parse_mode="HTML"
         )
+
+    # -----------------------------------------------------
+    # RESET
+    # -----------------------------------------------------
 
     elif query.data == "reset":
 
-        user_history.pop(user_id, None)
+        user_history.pop(
+            user_id,
+            None
+        )
 
         await query.message.reply_text(
             "🔄 আপনার AI memory reset হয়েছে।"
         )
 
+    # -----------------------------------------------------
+    # TRANSLATE
+    # -----------------------------------------------------
+
     elif query.data == "translate":
 
         await query.message.reply_text(
-            "🌐 Translation:\n\n"
+            "🌐 <b>Translation</b>\n\n"
             "যে text translate করতে চান, সেটি পাঠান।\n\n"
             "উদাহরণ:\n"
-            "Translate this into Bangla: Hello Bangladesh 🇧🇩"
+            "Translate this into Bangla: Hello Bangladesh 🇧🇩",
+            parse_mode="HTML"
         )
 
 
@@ -428,11 +670,14 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ERROR HANDLER
 # =========================================================
 
-async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
+async def error_handler(
+    update: object,
+    context: ContextTypes.DEFAULT_TYPE
+):
 
-    logger.exception(
-        "Telegram error:",
-        exc_info=context.error,
+    logger.error(
+        "Telegram error: %s",
+        repr(context.error)
     )
 
 
@@ -442,10 +687,18 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
 
 def main():
 
-    logger.info("Starting RJ Team AI Community Bangladesh Bot...")
-    logger.info(f"Model: {OPENAI_MODEL}")
+    logger.info(
+        "Starting RJ Team AI Community Bangladesh Bot..."
+    )
 
+    logger.info(
+        f"Model: {OPENAI_MODEL}"
+    )
+
+    # -----------------------------------------------------
     # Render health server
+    # -----------------------------------------------------
+
     health_thread = Thread(
         target=run_health_server,
         daemon=True,
@@ -453,60 +706,46 @@ def main():
 
     health_thread.start()
 
+    # -----------------------------------------------------
     # Telegram application
+    # -----------------------------------------------------
+
     application = (
         Application.builder()
         .token(BOT_TOKEN)
         .build()
     )
 
+    # -----------------------------------------------------
     # Commands
-    application.add_handler(
-        CommandHandler("start", start)
-    )
+    # -----------------------------------------------------
 
     application.add_handler(
-        CommandHandler("help", help_command)
-    )
-
-    application.add_handler(
-        CommandHandler("about", about)
-    )
-
-    application.add_handler(
-        CommandHandler("owners", owners)
-    )
-
-    application.add_handler(
-        CommandHandler("reset", reset)
-    )
-
-    # Buttons
-    application.add_handler(
-        CallbackQueryHandler(button_handler)
-    )
-
-    # Messages
-    application.add_handler(
-        MessageHandler(
-            filters.TEXT & ~filters.COMMAND,
-            handle_message,
+        CommandHandler(
+            "start",
+            start
         )
     )
 
-    # Error handler
-    application.add_error_handler(error_handler)
-
-    logger.info("Bot is running...")
-
-    application.run_polling(
-        drop_pending_updates=True
+    application.add_handler(
+        CommandHandler(
+            "help",
+            help_command
+        )
     )
 
+    application.add_handler(
+        CommandHandler(
+            "about",
+            about
+        )
+    )
 
-# =========================================================
-# RUN
-# =========================================================
+    application.add_handler(
+        CommandHandler(
+            "owners",
+            owners
+        )
+    )
 
-if __name__ == "__main__":
-    main()
+    application
